@@ -1,36 +1,44 @@
 import { Handler } from "express";
 import { prisma } from "../../prisma/database";
 import { CreateLeadRequestSchema } from "./schemas/LeadsRequestSchemas";
-import { group } from "console";
 import { HttpError } from "../errors/HttpError";
+import { LeadsRequestUpdateSchema } from "./schemas/LeadsRequestUpdateSchema";
 
+// Controller que lida com as operações de CRUD de Leads
 export class LeadsController {
-  // Aqui podemos criar os métodos que irão lidar com as requisições
-  // relacionadas aos leads, como criar, listar, atualizar e deletar leads.
-
-  // Exemplo de método para listar todos os leads
+  /**
+   * Lista todos os leads cadastrados no banco de dados.
+   * Método usado no endpoint: GET /leads
+   */
   index: Handler = async (req, res, next) => {
-    // usando o try-catch para lidar com o erro de forma personalizada
     try {
       const leads = await prisma.lead.findMany();
       res.status(200).json(leads);
     } catch (error) {
-      next(error);
+      next(error); // encaminha erro para o middleware global
     }
   };
 
+  /**
+   * Cria um novo lead no banco de dados.
+   * Valida os dados de entrada usando o schema definido com zod.
+   * Endpoint: POST /leads
+   */
   create: Handler = async (req, res, next) => {
     try {
-      const body = CreateLeadRequestSchema.parse(req.body);
-      const newLead = await prisma.lead.create({
-        data: body,
-      });
+      const body = CreateLeadRequestSchema.parse(req.body); // valida body
+      const newLead = await prisma.lead.create({ data: body });
       res.status(201).json(newLead);
     } catch (error) {
       next(error);
     }
   };
 
+  /**
+   * Retorna os dados de um lead específico com base no ID passado na URL.
+   * Inclui também as relações com grupos e campanhas.
+   * Endpoint: GET /leads/:id
+   */
   show: Handler = async (req, res, next) => {
     try {
       const lead = await prisma.lead.findUnique({
@@ -41,10 +49,56 @@ export class LeadsController {
         },
       });
 
-      if (!lead) throw new HttpError(404, "Lead not found");
+      if (!lead) throw new HttpError(404, "Lead não encontrado para exibição");
 
       res.status(200).json(lead);
     } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Atualiza um lead existente com os dados enviados no body.
+   * Também valida os dados com zod antes de atualizar.
+   * Endpoint: PUT /leads/:id
+   */
+  update: Handler = async (req, res, next) => {
+    try {
+      const body = LeadsRequestUpdateSchema.parse(req.body); // valida os dados
+      const leadUpdated = await prisma.lead.update({
+        where: { id: Number(req.params.id) },
+        data: body,
+        include: {
+          groups: true,
+          campaigns: true,
+        },
+      });
+
+      res.status(200).json(leadUpdated);
+    } catch (error: any) {
+      // Prisma lança esse erro se o ID informado não existir
+      if (error.code === "P2025") {
+        return next(new HttpError(404, "Lead não encontrado para atualização"));
+      }
+      next(error);
+    }
+  };
+
+  /**
+   * Deleta um lead com base no ID fornecido na URL.
+   * Retorna o lead deletado como resposta.
+   * Endpoint: DELETE /leads/:id
+   */
+  delete: Handler = async (req, res, next) => {
+    try {
+      const leadDeleted = await prisma.lead.delete({
+        where: { id: Number(req.params.id) },
+      });
+      res.status(200).json(leadDeleted);
+    } catch (error: any) {
+      if (error.code === "P2025") {
+        return next(new HttpError(404, "Lead não encontrado para exclusão"));
+      }
       next(error);
     }
   };

@@ -14,6 +14,8 @@ const leadsController = new LeadsController()
 router.get("/leads", leadsController.index)
 router.get("/leads/:id", leadsController.show)
 router.post("/leads", leadsController.create)
+router.put("/leads/:id", leadsController.update);
+router.delete("/leads/:id", leadsController.delete);
 
 // Rota de teste para verificar se esta ok
 router.get("/test", (req, res) => {
