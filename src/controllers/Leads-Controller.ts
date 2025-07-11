@@ -3,6 +3,8 @@ import { prisma } from "../../prisma/database";
 import { CreateLeadRequestSchema } from "./schemas/LeadsRequestSchemas";
 import { HttpError } from "../errors/HttpError";
 import { LeadsRequestUpdateSchema } from "./schemas/LeadsRequestUpdateSchema";
+import { GetLeadsRequestSchemas } from "./schemas/GetLeadsRequestSchema";
+import { Prisma } from "@prisma/client";
 
 // Controller que lida com as operações de CRUD de Leads
 export class LeadsController {
@@ -12,8 +14,38 @@ export class LeadsController {
    */
   index: Handler = async (req, res, next) => {
     try {
-      const leads = await prisma.lead.findMany();
-      res.status(200).json(leads);
+      const query = GetLeadsRequestSchemas.parse(req.query) // valida os dados do getleadschema.ts
+      const {name, status, page = "1", pageSize = "10", sorteBy = "name", order = "asc"} = query
+
+      // convertendo para number
+      const pageNumber = Number(page)
+      const pageSizeNumber = +pageSize
+
+      const where: Prisma.LeadWhereInput = {}
+
+      // adicionando filtros dec busca
+      if(name) where.name = {contains: name, mode: "insensitive"}
+      if(status) where.status = status
+
+      // fazendo a consulta
+      const leads = await prisma.lead.findMany({
+        where,
+        skip: (pageNumber -1) * pageSizeNumber, // pular os registros antes de exibir
+        take: pageSizeNumber,
+        orderBy: {[sorteBy]: order}
+      });
+
+      const totalCount = await prisma.lead.count({where})
+
+      res.status(200).json({
+        data: leads,
+        meta: {
+          totalCount, // total de registros encontrados
+          page: pageNumber, // página atual
+          pageSize: pageSizeNumber, // tamanho da página
+          totalPages: Math.ceil(totalCount / pageSizeNumber), // total de páginas
+        }
+      });
     } catch (error) {
       next(error); // encaminha erro para o middleware global
     }
@@ -65,13 +97,10 @@ export class LeadsController {
   update: Handler = async (req, res, next) => {
     try {
       const body = LeadsRequestUpdateSchema.parse(req.body); // valida os dados
+
       const leadUpdated = await prisma.lead.update({
         where: { id: Number(req.params.id) },
         data: body,
-        include: {
-          groups: true,
-          campaigns: true,
-        },
       });
 
       res.status(200).json(leadUpdated);
