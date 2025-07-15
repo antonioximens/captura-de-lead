@@ -14,28 +14,35 @@ export class LeadsController {
    */
   index: Handler = async (req, res, next) => {
     try {
-      const query = GetLeadsRequestSchemas.parse(req.query) // valida os dados do getleadschema.ts
-      const {name, status, page = "1", pageSize = "10", sorteBy = "name", order = "asc"} = query
+      const query = GetLeadsRequestSchemas.parse(req.query); // valida os dados do getleadschema.ts
+      const {
+        name,
+        status,
+        page = "1",
+        pageSize = "10",
+        sorteBy = "name",
+        order = "asc",
+      } = query;
 
       // convertendo para number
-      const pageNumber = Number(page)
-      const pageSizeNumber = +pageSize
+      const pageNumber = Number(page);
+      const pageSizeNumber = +pageSize;
 
-      const where: Prisma.LeadWhereInput = {}
+      const where: Prisma.LeadWhereInput = {};
 
       // adicionando filtros dec busca
-      if(name) where.name = {contains: name, mode: "insensitive"}
-      if(status) where.status = status
+      if (name) where.name = { contains: name, mode: "insensitive" };
+      if (status) where.status = status;
 
       // fazendo a consulta
       const leads = await prisma.lead.findMany({
         where,
-        skip: (pageNumber -1) * pageSizeNumber, // pular os registros antes de exibir
+        skip: (pageNumber - 1) * pageSizeNumber, // pular os registros antes de exibir
         take: pageSizeNumber,
-        orderBy: {[sorteBy]: order}
+        orderBy: { [sorteBy]: order },
       });
 
-      const totalCount = await prisma.lead.count({where})
+      const totalCount = await prisma.lead.count({ where });
 
       res.status(200).json({
         data: leads,
@@ -44,7 +51,7 @@ export class LeadsController {
           page: pageNumber, // página atual
           pageSize: pageSizeNumber, // tamanho da página
           totalPages: Math.ceil(totalCount / pageSizeNumber), // total de páginas
-        }
+        },
       });
     } catch (error) {
       next(error); // encaminha erro para o middleware global
