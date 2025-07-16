@@ -1,7 +1,10 @@
 import { Handler } from "express";
 import { prisma } from "../../prisma/database";
 import { HttpError } from "../errors/HttpError";
-import { CreateSchemaCapaign } from "./schemas/CreateCampaign";
+import {
+  CreateSchemaCampaign,
+  UpdateSchemaCampaign,
+} from "./schemas/CreateCampaign";
 
 export class CampaignsController {
   index: Handler = async (req, res, next) => {
@@ -30,7 +33,7 @@ export class CampaignsController {
   };
   create: Handler = async (req, res, next) => {
     try {
-      const body = CreateSchemaCapaign.parse(req.body);
+      const body = CreateSchemaCampaign.parse(req.body);
 
       const newCampaign = await prisma.campaign.create({ data: body });
       res.status(201).json(newCampaign);
@@ -38,6 +41,45 @@ export class CampaignsController {
       next(error);
     }
   };
-  update: Handler = async (req, res, next) => {};
-  delete: Handler = async (req, res, next) => {};
+  update: Handler = async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const body = UpdateSchemaCampaign.parse(req.body);
+      const campaignExists = await prisma.campaign.findUnique({
+        where: { id },
+      });
+      if (!campaignExists)
+        throw new HttpError(404, "Campanha não encontrada para atualização");
+      const updatedCampaign = await prisma.campaign.update({
+        where: { id },
+        data: body,
+      });
+
+      res.status(200).json({
+        message: "Campanha atualizada com sucesso",
+        data: updatedCampaign,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+  delete: Handler = async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const campaignExists = await prisma.campaign.findFirst({
+        where: { id },
+        select: { id: true },
+      });
+      if (!campaignExists)
+        throw new HttpError(404, "campanha não encontrada para exclusão");
+      const deletedCampaign = await prisma.campaign.delete({ where: { id } });
+
+      res.status(200).json({
+        message: "Campanha excluída com sucesso",
+        data: deletedCampaign,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
