@@ -21,7 +21,11 @@ export class CampaignsController {
       const campaign = await prisma.campaign.findUnique({
         where: { id },
         include: {
-          leads: true,
+          leads: {
+            include: {
+              lead: true,
+            },
+          },
         },
       });
 
