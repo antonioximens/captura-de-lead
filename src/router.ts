@@ -5,6 +5,7 @@ import { LeadsController } from "./controllers/Leads-Controller";
 import { GroupsController } from "./controllers/GroupsController";
 import { CampaignsController } from "./controllers/CampaignsController";
 import { CampaignLeadsController } from "./controllers/CampaignLeadsController";
+import { GroupLeadsController } from "./controllers/GroupLeadsController";
 
 // cria um roteador para por as rotas da aplicação
 const router = Router();
@@ -15,6 +16,7 @@ const leadsController = new LeadsController()
 const groupsController = new GroupsController()
 const campaignController = new CampaignsController()
 const campaignLeadsController = new CampaignLeadsController()
+const groupLeadsController = new GroupLeadsController()
 
 // Define as rotas para os leads
 router.get("/leads", leadsController.index)
@@ -40,6 +42,10 @@ router.post("/campaigns/:campaignId/leads", campaignLeadsController.addLead)
 router.put("/campaigns/:campaignId/leads/:leadId", campaignLeadsController.updateLeadStatus)
 router.delete("/campaigns/:campaignId/leads/:leadId", campaignLeadsController.removeLead)
 
+
+router.get("/groups/:groupId/leads", groupLeadsController.getLeads)
+router.post("/groups/:groupId/leads", groupLeadsController.addLead)
+router.delete("/groups/:groupId/leads/:leadId", groupLeadsController.removeLead)
 // Rota de teste para verificar se esta ok
 router.get("/test", (req, res) => {
   res.json({ message: "OK" });

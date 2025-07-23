@@ -65,13 +65,18 @@ export class LeadsController {
    */
   create: Handler = async (req, res, next) => {
     try {
-      const body = CreateLeadRequestSchema.parse(req.body); // valida body
-      const newLead = await prisma.lead.create({ data: body });
-      res.status(201).json(newLead);
+      const body = CreateLeadRequestSchema.parse(req.body)
+      // Verifica se o status foi enviado, caso contrário define como "New"
+      if (!body.status) body.status = "New"
+      // Cria o lead no banco de dados
+      const newLead = await prisma.lead.create({
+        data: body
+      })
+      res.status(201).json(newLead)
     } catch (error) {
-      next(error);
+      next(error)
     }
-  };
+  }
 
   /**
    * Retorna os dados de um lead específico com base no ID passado na URL.
@@ -103,39 +108,50 @@ export class LeadsController {
    */
   update: Handler = async (req, res, next) => {
     try {
-      const body = LeadsRequestUpdateSchema.parse(req.body); // valida os dados
+      const id = Number(req.params.id)
+      const body = LeadsRequestUpdateSchema.parse(req.body)
 
-      const leadUpdated = await prisma.lead.update({
-        where: { id: Number(req.params.id) },
-        data: body,
-      });
-
-      res.status(200).json(leadUpdated);
-    } catch (error: any) {
-      // Prisma lança esse erro se o ID informado não existir
-      if (error.code === "P2025") {
-        return next(new HttpError(404, "Lead não encontrado para atualização"));
+      const leadExists = await prisma.lead.findUnique({ where: { id } })
+      if (!leadExists) throw new HttpError(404, "lead não encontrado")
+      
+      // Verifica se o lead já foi devidamente contatado
+      if (leadExists.status === "New" && body.status !== "Contacted") {
+	      throw new HttpError(400, "um novo lead deve ser contatado antes de ter seu status atualizado para outros valores")
       }
-      next(error);
+      
+      // Valida a inatividade nesse lead em casa de arquivamente
+      if (body.status === "Archived") {
+	      const now = new Date()
+	      const diffTime = Math.abs(now.getTime() - leadExists.updatedAt.getTime())
+	      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+	      if (diffDays < 180) throw new HttpError(400, "um lead só pode ser arquivado após 6 meses de inatividade")
+      }
+
+      const updatedLead = await prisma.lead.update({ data: body, where: { id } })
+
+      res.json(updatedLead)
+    } catch (error) {
+      next(error)
     }
-  };
+  }
 
   /**
    * Deleta um lead com base no ID fornecido na URL.
    * Retorna o lead deletado como resposta.
    * Endpoint: DELETE /leads/:id
    */
-  delete: Handler = async (req, res, next) => {
+   delete: Handler = async (req, res, next) => {
     try {
-      const leadDeleted = await prisma.lead.delete({
-        where: { id: Number(req.params.id) },
-      });
-      res.status(200).json(leadDeleted);
-    } catch (error: any) {
-      if (error.code === "P2025") {
-        return next(new HttpError(404, "Lead não encontrado para exclusão"));
-      }
-      next(error);
+      const id = Number(req.params.id)
+
+      const leadExists = await prisma.lead.findUnique({ where: { id } })
+      if (!leadExists) throw new HttpError(404, "lead não encontrado")
+
+      const deletedLead = await prisma.lead.delete({ where: { id } })
+
+      res.json({ deletedLead })
+    } catch (error) {
+      next(error)
     }
-  };
+  }
 }
