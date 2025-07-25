@@ -1,5 +1,5 @@
 
-# 📊 Lead Management API
+# 📊 Lead Captura API
 
 API RESTful para captura, gerenciamento e organização de **leads**, com suporte a grupos e campanhas. Construída com **Node.js**, **Express**, **Prisma ORM** e validações usando **Zod**.
 
