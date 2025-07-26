@@ -1,5 +1,6 @@
 import { Lead } from "@prisma/client";
 
+
 export type LeadStatus = "New" | "Contacted" | "Qualified" | "Converted" | "Unresponsive" | "Disqualified" | "Archived" 
 
 export interface LeadWhereParams {
@@ -35,3 +36,4 @@ export interface LeadsRepository {
    updateById: (id: number, attributes: Partial<CreateLeadAttributes>) => Promise<Lead | null>
    delete: (id: number) => Promise<Lead | null>
 }
+
