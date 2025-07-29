@@ -1,22 +1,11 @@
 // rotas da aplicação
-
 import { Router } from "express";
-import { LeadsController } from "./controllers/Leads-Controller";
-import { GroupsController } from "./controllers/GroupsController";
-import { CampaignsController } from "./controllers/CampaignsController";
-import { CampaignLeadsController } from "./controllers/CampaignLeadsController";
-import { GroupLeadsController } from "./controllers/GroupLeadsController";
+import { campaignController, campaignLeadsController, groupLeadsController, groupsController, leadsController } from "./container";
 
 // cria um roteador para por as rotas da aplicação
 const router = Router();
 
-// cria uma instnacia de leadsController para usar os metodos
-// criados na classe e usar - lo
-const leadsController = new LeadsController()
-const groupsController = new GroupsController()
-const campaignController = new CampaignsController()
-const campaignLeadsController = new CampaignLeadsController()
-const groupLeadsController = new GroupLeadsController()
+
 
 // Define as rotas para os leads
 router.get("/leads", leadsController.index)
