@@ -1,12 +1,18 @@
 import { Handler } from "express";
-import { Prisma } from "@prisma/client";
-import { prisma } from "../../prisma/database";
 import { GetLeadsRequestSchemas } from "./schemas/GetLeadsRequestSchema";
 import { AddLeadRequestSchema } from "./schemas/GetCampaignLeadsRequest";
-
+import { GroupsRepository } from "../repositories/GroupsRepository";
+import {
+  LeadsRepository,
+  LeadWhereParams,
+} from "../repositories/LeadsRepository";
 
 // Cria a classe de controller que vai lidar com leads dentro de um grupo
 export class GroupLeadsController {
+  constructor(
+    private readonly groupsRepository: GroupsRepository,
+    private readonly leadsRepository: LeadsRepository
+  ) {}
 
   // Método GET: buscar todos os leads de um grupo com paginação e filtros
   getLeads: Handler = async (req, res, next) => {
@@ -23,7 +29,7 @@ export class GroupLeadsController {
         pageSize = "10",
         name,
         status,
-        sorteBy = "name", 
+        sortBy = "name",
         order = "asc",
       } = query;
 
@@ -35,13 +41,13 @@ export class GroupLeadsController {
       const skipPage = (pageNumber - 1) * pageSizeNumber;
 
       // Cria o filtro base: leads que pertencem ao grupo
-      const where: Prisma.LeadWhereInput = {
-        groups: { some: { id: groupId } },
+      const where: LeadWhereParams = {
+        groupId,
       };
 
       // Se veio o filtro por nome, adiciona no WHERE
       if (name) {
-        where.name = { contains: name, mode: "insensitive" }; // busca parcial e sem case-sensitive
+        where.name = { like: name, mode: "insensitive" }; // busca parcial e sem case-sensitive
       }
 
       // Se veio o status, adiciona no WHERE
@@ -50,18 +56,17 @@ export class GroupLeadsController {
       }
 
       // Busca os leads com base nos filtros e paginação
-      const leads = await prisma.lead.findMany({
+      const leads = await this.leadsRepository.find({
         where,
-        orderBy: { [sorteBy]: order }, // ordenação dinâmica (ex: por nome ou por data)
-        skip: skipPage,                // pula registros conforme página atual
-        take: pageSizeNumber,          // quantos registros por página
-        include: {
-          groups: true                 // inclui os grupos a que o lead pertence
-        },
+        sortBy,
+        order,
+        limit: pageSizeNumber,
+        offset: skipPage,
+        include: {groups: true}
       });
 
       // Conta total de registros com os filtros aplicados (para a paginação)
-      const total = await prisma.lead.count({ where });
+      const total = await this.leadsRepository.count(where);
 
       // Retorna os dados no formato padrão de paginação
       res.json({
@@ -73,7 +78,6 @@ export class GroupLeadsController {
           totalPages: Math.ceil(total / pageSizeNumber), // total de páginas
         },
       });
-
     } catch (error) {
       // Em caso de erro, passa para o middleware de tratamento de erro
       next(error);
@@ -84,24 +88,16 @@ export class GroupLeadsController {
   addLead: Handler = async (req, res, next) => {
     try {
       // Valida e transforma o corpo da requisição
-      const body = AddLeadRequestSchema.parse(req.body);
+      const groupId = Number(req.params.id);
+      const { leadId } = AddLeadRequestSchema.parse(req.body);
 
       // Atualiza o grupo para conectar o lead (muitos-para-muitos)
-      const updatedGroup = await prisma.group.update({
-        where: {
-          id: Number(req.params.groupId),
-        },
-        data: {
-          leads: {
-            connect: { id: body.leadId }, // conecta lead existente ao grupo
-          },
-        },
-        include: { leads: true }, // retorna os leads atualizados no grupo
-      });
-
+      const updatedGroup = await this.groupsRepository.addLeadToGroup(
+        groupId,
+        leadId
+      );
       // Responde com o grupo atualizado
       res.status(201).json(updatedGroup);
-
     } catch (error) {
       next(error);
     }
@@ -110,18 +106,14 @@ export class GroupLeadsController {
   // Método DELETE: remover um lead de um grupo
   removeLead: Handler = async (req, res, next) => {
     try {
-      const updatedGroup = await prisma.group.update({
-        where: { id: Number(req.params.groupId) },
-        data: {
-          leads: {
-            disconnect: { id: Number(req.params.leadId) }, // remove a relação com o lead
-          },
-        },
-        include: { leads: true }, // retorna o grupo atualizado
-      });
+      const groupId = Number(req.params.groupId);
+      const leadId = Number(req.params.leadId);
 
+      const updatedGroup = await this.groupsRepository.removeLeadToGroup(
+        groupId,
+        leadId
+      );
       res.json(updatedGroup);
-
     } catch (error) {
       next(error);
     }
