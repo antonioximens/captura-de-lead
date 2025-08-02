@@ -4,10 +4,10 @@ import {
   CreateSchemaCampaign,
   UpdateSchemaCampaign,
 } from "./schemas/CreateCampaign";
-import { Campaign } from "../repositories/CampaignRepository";
+import { CampaignRepository } from "../repositories/CampaignRepository";
 
 export class CampaignsController {
-  constructor(private readonly campaignRepository: Campaign){}
+  constructor(private readonly campaignRepository: CampaignRepository){}
 
   index: Handler = async (req, res, next) => {
     try {
@@ -21,18 +21,7 @@ export class CampaignsController {
     try {
       const id = Number(req.params.id);
       const campaign = await this.campaignRepository.findById(id)
-      
-      // prisma.campaign.findUnique({
-      //   where: { id },
-      //   include: {
-      //     leads: {
-      //       include: {
-      //         lead: true,
-      //       },
-      //     },
-      //   },
-      // });
-
+    
       if (!campaign) throw new HttpError(404, "Campanha não encontrada");
       res.json(campaign);
     } catch (error) {

@@ -1,3 +1,5 @@
+import { Campaign } from "@prisma/client"
+
 export interface CreateCampaign {
     name: string
     description: string 
@@ -5,7 +7,7 @@ export interface CreateCampaign {
     endDate?: Date
 }
 
-export interface Campaign{
+export interface CampaignRepository{
     find: () => Promise<Campaign[]>
     findById: (id: number) => Promise<Campaign | null>
     create: (attributes:CreateCampaign) => Promise<Campaign>
