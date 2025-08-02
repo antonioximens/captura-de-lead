@@ -8,7 +8,16 @@ export class PrismaCampaignRepository implements CampaignRepository {
         return prisma.campaign.findMany()
     }
     async findById(id: number): Promise<Campaign | null>{
-        return prisma.campaign.findUnique({ where: {id}})
+        return prisma.campaign.findUnique({ 
+            where: {id},
+            include: {
+                leads: {
+                    include: {
+                        lead: true
+                    }
+                }
+            }
+        })
     }
     async create(attributes: CreateCampaign): Promise<Campaign>{
         return prisma.campaign.create({data: attributes})
