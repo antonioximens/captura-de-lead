@@ -7,10 +7,14 @@ import {
 } from "./schemas/GetCampaignLeadsRequest";
 import { prisma } from "../../prisma/database";
 import { CampaignRepository } from "../repositories/CampaignRepository";
+import { LeadsRepository, LeadWhereParams } from "../repositories/LeadsRepository";
 
 export class CampaignLeadsController {
 
-  constructor( private readonly campaignRepository: CampaignRepository){}
+  constructor( 
+    private readonly campaignRepository: CampaignRepository,
+    private readonly leadsRepository: LeadsRepository
+  ){}
   /**
    * GET /campaigns/:campaignId/leads
    * - Recebe query params: page, pageSize, name, status, sortBy, order
@@ -30,51 +34,37 @@ export class CampaignLeadsController {
         order = "asc"
       } = query;
 
-      const pageNumber = Number(page);
-      const pageSizeNumber = Number(pageSize);
+      const limit = Number(page);
+      const offset = (Number(page)-1) * limit
 
       // Filtro inicial: leads já associados à campanha
-      const where: Prisma.LeadWhereInput = {
-        campaigns: { some: { campaignId } }
-      };
+      const where: LeadWhereParams = {campaignId,campaignStatus: status};
 
       // Filtro adicional por nome
       if (name) {
-        where.name = { contains: name, mode: "insensitive" };
-      }
-
-      // Filtro adicional por status no join com leadCampaign
-      if (status) {
-        where.campaigns = { some: { status } };
+        where.name = { like: name, mode: "insensitive" };
       }
 
       // Busca os leads com paginação e ordenação
-      const leads = await prisma.lead.findMany({
+      const leads = await this.leadsRepository.find({
         where,
-        orderBy: { [sortBy]: order },
-        skip: (pageNumber - 1) * pageSizeNumber,
-        take: pageSizeNumber,
-        include: {
-          campaigns: {
-            select: {
-              campaignId: true,
-              leadId: true,
-              status: true
-            }
-          }
-        }
-      });
+        sortBy,
+        order,
+        limit,
+        offset,
+        include: { campaigns: true}
+      })
 
       // Conta total de registros com os filtros aplicados
-      const total = await prisma.lead.count({ where });
+      const total = await this.leadsRepository.count(where)
 
       res.json({
         leads,
         meta: {
-          page: pageNumber,
-          pageSize: pageSizeNumber,
+          page: Number(page),
+          pageSize: limit,
           total,
-          totalPages: Math.ceil(total / pageSizeNumber)
+          totalPages: Math.ceil(total / limit)
         }
       });
     } catch (error) {
