@@ -1,20 +1,12 @@
 import { Handler } from "express";
 import { CreateLeadRequestSchema } from "./schemas/LeadsRequestSchemas";
-import { HttpError } from "../errors/HttpError";
 import { LeadsRequestUpdateSchema } from "./schemas/LeadsRequestUpdateSchema";
 import { GetLeadsRequestSchemas } from "./schemas/GetLeadsRequestSchema";
-import {
-  LeadsRepository,
-  LeadWhereParams,
-} from "../repositories/LeadsRepository";
+import { LeadsService } from "../Service/LeadsService";
 
 // Controller que lida com as operações de CRUD de Leads
 export class LeadsController {
-  private leadsRepository: LeadsRepository;
-
-  constructor(leadsRepository: LeadsRepository) {
-    this.leadsRepository = leadsRepository;
-  }
+  constructor(private readonly leadsService: LeadsService ) { }
 
   /**
    * Lista todos os leads cadastrados no banco de dados.
@@ -23,47 +15,11 @@ export class LeadsController {
   index: Handler = async (req, res, next) => {
     try {
       const query = GetLeadsRequestSchemas.parse(req.query); // valida os dados do getleadschema.ts
-      const {
-        name,
-        status,
-        page = "1",
-        pageSize = "10",
-        sortBy = "name",
-        order = "asc",
-      } = query;
+      const {page = "1", pageSize = "10"} = query
+      const data = await this.leadsService.getAllLeads({...query, page: +page, pageSize: +pageSize}) 
 
-      // convertendo para number
-      const pageNumber = Number(page);
-      const pageSizeNumber = +pageSize;
-      const offset = (pageNumber - 1) * pageSizeNumber;
-
-      const where: LeadWhereParams = {};
-
-      // adicionando filtros dec busca
-      if (name) where.name = { like: name, mode: "insensitive" };
-      if (status) where.status = status;
-
-      // fazendo a consulta
-
-      const leads = await this.leadsRepository.find({
-        where,
-        sortBy,
-        order,
-        limit: pageSizeNumber,
-        offset: offset,
-      });
-
-      const totalCount = await this.leadsRepository.count(where);
-
-      res.status(200).json({
-        data: leads,
-        meta: {
-          totalCount, // total de registros encontrados
-          page: pageNumber, // página atual
-          pageSize: pageSizeNumber, // tamanho da página
-          totalPages: Math.ceil(totalCount / pageSizeNumber), // total de páginas
-        },
-      });
+      // traz todo resultado do LeadsService.ts
+      res.status(200).json(data);
     } catch (error) {
       next(error); // encaminha erro para o middleware global
     }
@@ -77,10 +33,8 @@ export class LeadsController {
   create: Handler = async (req, res, next) => {
     try {
       const body = CreateLeadRequestSchema.parse(req.body);
-      // Verifica se o status foi enviado, caso contrário define como "New"
-      if (!body.status) body.status = "New";
-      // Cria o lead no banco de dados
-      const newLead = await this.leadsRepository.create(body);
+      // chamando o metodo do leadsService para criar
+      const newLead = await this.leadsService.createLead(body)
 
       res.status(201).json(newLead);
     } catch (error) {
@@ -95,10 +49,7 @@ export class LeadsController {
    */
   show: Handler = async (req, res, next) => {
     try {
-      const lead = await this.leadsRepository.findById(Number(req.params.id));
-
-      if (!lead) throw new HttpError(404, "Lead não encontrado para exibição");
-
+      const lead = await this.leadsService.findLeadId(+req.params.id)
       res.status(200).json(lead);
     } catch (error) {
       next(error);
@@ -114,34 +65,7 @@ export class LeadsController {
     try {
       const id = Number(req.params.id);
       const body = LeadsRequestUpdateSchema.parse(req.body);
-
-      const leadExists = await this.leadsRepository.findById(id);
-      if (!leadExists) throw new HttpError(404, "lead não encontrado");
-
-      // Verifica se o lead já foi devidamente contatado
-      if (leadExists.status === "New" && body.status !== "Contacted") {
-        throw new HttpError(
-          400,
-          "um novo lead deve ser contatado antes de ter seu status atualizado para outros valores"
-        );
-      }
-
-      // Valida a inatividade nesse lead em casa de arquivamente
-      if (body.status === "Archived") {
-        const now = new Date();
-        const diffTime = Math.abs(
-          now.getTime() - leadExists.updatedAt.getTime()
-        );
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (diffDays < 180)
-          throw new HttpError(
-            400,
-            "um lead só pode ser arquivado após 6 meses de inatividade"
-          );
-      }
-
-      const updatedLead = await this.leadsRepository.updateById(id, body);
-
+      const updatedLead = await this.leadsService.updateLead(id, body)
       res.json(updatedLead);
     } catch (error) {
       next(error);
@@ -156,13 +80,8 @@ export class LeadsController {
   delete: Handler = async (req, res, next) => {
     try {
       const id = Number(req.params.id);
-
-      const leadExists = await this.leadsRepository.findById(id);
-      if (!leadExists) throw new HttpError(404, "lead não encontrado");
-
-      const deletedLead = await this.leadsRepository.delete(id);
-
-      res.json({ deletedLead });
+      const deletedLead = await this.leadsService.deletedLead(id)
+      res.json(deletedLead);
     } catch (error) {
       next(error);
     }
